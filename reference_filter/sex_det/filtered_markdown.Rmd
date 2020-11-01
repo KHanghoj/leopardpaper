@@ -1,0 +1,230 @@
+---
+title: "sex chromosomes"
+author: "casia"
+date: "4/6/2020"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+params:
+  output_dir: /home/casi16/leopard/SexDetermination.html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(tinytex.verbose = TRUE)
+```
+
+## Main Script
+
+
+```{echo=FALSE}
+fun<-function(f){
+    r <- read.table(f)
+    scafLen <- r[,2]
+    nReads <- r[,3]
+    norm<-sum(nReads[1:5])/sum(scafLen[1:5])
+    cbind(normReads=(nReads/scafLen) /norm,nReads,scafLen,r[,-c(3,4)])}
+
+res <- lapply(l <- list.files("/home/casia16/leopard/filtered_results/",full.names=T),fun)
+names(res) <- basename(l)
+removedSamples<-c("7466.idxstats","7465.idxstats","6350.idxstats","6352.idxstats")
+resFiltered=res[which(!names(res) %in% removedSamples)]
+
+minScafLen <- 1000000
+keep <- resFiltered[[1]][,"scafLen"]>minScafLen & !is.nan(resFiltered[[1]][,"scafLen"])
+res2 <- lapply(resFiltered,function(x) x[keep,])
+mmax <- max(sapply(res2,function(x) max(x[,"normReads"])))
+mmax=3
+png("/home/casia16/leopard/filtered_plots/1bplot.png", width = 1000, height = 400)
+plot(res2[[1]][,"scafLen"],res2[[1]][,"normReads"],log="x",xlab="scaffold length",ylab="normalized depth",ylim=c(0,mmax),type="l", cex.lab=1.6, cex.axis=1.6)
+sapply(1:length(res2),function(x) lines(res2[[x]][,3],res2[[x]][,1],col=x,pch=16,type="b",cex=.3))
+dev.off()
+
+plot(res2[[1]][,"scafLen"],res2[[1]][,"normReads"],log="x",xlab="scaffold length",ylab="normalized depth",ylim=c(0,mmax),type="l", cex.lab=1.6, cex.axis=1.6)
+sapply(1:length(res2),function(x) lines(res2[[x]][,3],res2[[x]][,1],col=x,pch=16,type="b",cex=.3))
+
+#c(5.1, 4.1, 4.1, 2.1)
+par(mar = c(9, 9, 2, 3))
+plot(res2[[1]][,"scafLen"],res2[[1]][,"normReads"],log="x",xlab="",ylab="",ylim=c(0,mmax),type="l", cex.lab=3, cex.axis=2)
+sapply(1:length(res2),function(x) lines(res2[[x]][,3],res2[[x]][,1],col=x,pch=16,type="b",cex=.3))
+title(ylab="normalized depth", line=4, cex.lab=3, family="Calibri Light")
+title(xlab="scaffold length", line=6, cex.lab=3, family="Calibri Light")
+
+#matrix of normalized depth
+normMat <- do.call(cbind,lapply(res2,function(x) x[,1]))
+rownames(normMat)=as.character(res2[[1]][,4])
+png("/home/casia16/leopard/filtered_plots/pca1.png", width = 2000, height = 2000)
+plot(pca<-prcomp(normMat)$rotation[,1:2],col=ifelse(pca[,1] < -0.1,"black","red"),pch = 19,  cex.lab=1.5, cex.axis=1.5, xlab="Principal Component 1",ylab="Principal Component 2")
+dev.off()
+
+par(mar = c(9, 9, 2, 3))
+plot(pca<-prcomp(normMat)$rotation[,1:2],col=ifelse(pca[,1] < -0.1,"black","red"),pch = 19,  cex.lab=2, cex.axis=2, xlab="",ylab="")
+title(ylab="Principal Component 2", line=5, cex.lab=3, family="Calibri Light")
+title(xlab="Principal Component 1", line=6, cex.lab=3, family="Calibri Light")
+
+
+nonAutosomes <- abs(meanDepth[1,] - meanDepth[2,])>0.4
+selectedScaf=meanDepth[,nonAutosomes]
+colnames(selectedScaf)=rownames(normMat)[nonAutosomes]
+end_point = 0.5 + ncol(selectedScaf) + ncol(selectedScaf)-1
+#png("/home/casia16/leopard/filtered_plots/4plot04.png", width = 1000, height = 500)
+par(mar = c(14, 9, 4, 1) + 0.1);       # This sets the plot margins
+barplot(xlab="",las=2,cex.names=1.5,border=NA,col=c("black","red"),selectedScaf,beside=T,legend=c("sex1","sex2"),ylab="",cex.axis = 2)
+grid();
+title(xlab = "scaffold", line = 13,cex.lab=3)
+title(ylab = "normalized depth", line = 6,cex.lab=3);    # Add x axis title
+#dev.off()
+
+
+
+text(seq(1.5,end_point,by=2), par("usr")[3]-0.25, 
+     srt = 60, adj= 1, xpd = TRUE,
+     labels = paste(colnames(selectedScaf)), cex=1.4)
+
+
+
+## Initial Gender Grouping by according to PCA plot
+gender <- rep(NA,length(res2))
+names(gender) <- names(res2)
+gender[names(res2)] <- ifelse(pca[,1] < -0.1,"sex1","sex2")
+gen=cbind(id=as.character(names(gender)),gender,sex=ifelse(gender=="sex1","male","female"))
+#write.table(gen,"/home/casia16/leopard/sexSample.txt",quote=F,col=F,row=F)
+
+png("/home/casia16/leopard/filtered_plots/2plot.png", width = 1000, height = 400)
+plot(res2[[1]][,"scafLen"],res2[[1]][,"normReads"],log="x",xlab="scaffold length",ylab="normalized depth",ylim=c(0,mmax),type="l",cex.lab=1.4, cex.axis=1.4)
+sapply(1:length(res2),function(x) lines(res2[[x]][,3],res2[[x]][,1],col=as.factor(gender)[x],pch=16,type="b",cex=.3))
+legend("topright",fill=1:2,c("sex1","sex2"))
+dev.off()
+
+png("/home/casia16/leopard/filtered_plots/3plot.png", width = 1000, height = 400)
+barplot(border=NA,col=c("black","red"),meanDepth <- rbind(rowMeans(normMat[,gender=="sex1"],na.rm=T), rowMeans(normMat[,gender=="sex2"],na.rm=T)),beside=T,legend=c("sex1","sex2"),ylab="normalized depth",xlab="scaffolds")
+grid()
+dev.off()
+
+
+nonAutosomes <- abs(meanDepth[1,] - meanDepth[2,])>0.1
+selectedScaf=meanDepth[,nonAutosomes]
+colnames(selectedScaf)=rownames(normMat)[nonAutosomes]
+png("/home/casia16/leopard/filtered_plots/4plot.png", width = 1000, height = 500)
+par(mar = c(14, 4, 4, 1) + 0.1);       # This sets the plot margins
+barplot(xlab="",las=2,cex.names=.9,border=NA,col=c("black","red"),selectedScaf,beside=T,legend=c("sex1","sex2"),ylab="normalized depth")
+grid();
+title(xlab = "scaffold", line = 9);    # Add x axis title
+dev.off()
+
+nonAutosomes <- abs(meanDepth[1,] - meanDepth[2,])>0.4
+selectedScaf=meanDepth[,nonAutosomes]
+colnames(selectedScaf)=rownames(normMat)[nonAutosomes]
+png("/home/casia16/leopard/filtered_plots/4plot04.png", width = 1000, height = 500)
+par(mar = c(14, 4, 4, 1) + 0.1);       # This sets the plot margins
+barplot(xlab="",las=2,cex.names=.9,border=NA,col=c("black","red"),selectedScaf,beside=T,legend=c("sex1","sex2"),ylab="normalized depth")
+grid();
+title(xlab = "scaffold", line = 9);    # Add x axis title
+dev.off()
+
+
+scaf23=rownames(normMat)[nonAutosomes04]
+
+keep23 <- res2[[1]][,"V1"] %in% scaf23
+res3 <- lapply(res2,function(x) x[keep23,])
+
+mmax=2
+png("/home/casia16/leopard/filtered_plots/23Scafplot_scafLen.png", width = 1000, height = 400)
+plot(res3[[1]][,"scafLen"],res3[[1]][,"normReads"],log="x",xlab="scaffold length",ylab="normalized depth",ylim=c(0,mmax),type="l")
+sapply(1:length(res3),function(x) lines(res3[[x]][,3],res3[[x]][,1],col=x,pch=16,type="b",cex=.3))
+dev.off()
+
+meanSDDepthAll <- cbind(rownames(normMat),rowMeans(normMat,na.rm=T), rowSds(normMat,na.rm=T))
+colnames(meanSDDepthAll)=c("nameScaf","Mean","SD")
+
+normMat2 <- do.call(cbind,lapply(res3,function(x) x[,1]))
+normMat["NW_017619914.1",] > 0.65 & normMat["NW_017619923.1",] < 0.6 # 2523.idxstats
+
+library(ggplot2)
+library(matrixStats)
+meanSDDepthAll <- cbind(rownames(normMat),rowMeans(normMat,na.rm=T), rowSds(normMat,na.rm=T))
+colnames(meanSDDepthAll)=c("nameScaf","Mean","SD")
+dat=as.data.frame(meanSDDepthAll)
+dat2=as.data.frame(cbind(Mean=as.numeric(as.character(dat[,2])),SD=as.numeric(as.character(dat[,3]))))
+chr=ifelse(nonAutosomes==TRUE,"NonAutosomes","Autosomes")
+dat3=cbind(dat2,group=as.character(chr))
+
+
+png("/home/casia16/leopard/filtered_plots/222ScafAutoNonAuto.png", width = 1000, height = 400)
+ggplot(dat3, aes(x=1:222, y=Mean))+geom_point(aes(color=group))+geom_errorbar(aes(ymin=Mean-SD,ymax=Mean+SD),width=.1)+theme_classic()+scale_color_manual(values=c("black","blue"))+labs(x="Scaffold",color="") + geom_hline(yintercept=1.1, linetype="dashed", color = "red") +
+    geom_hline(yintercept=0.9, linetype="dashed", color = "red")
+dev.off()
+
+
+
+####check
+
+rownames(dat3)=rownames(normMat)
+
+weird=ifelse(dat2[,1]>0.9 & dat2[,1]<1.1, "autosomes",ifelse(dat2[,1]<0.8,"nonautosomes","weird"))
+dat4=cbind(nameScaf=rownames(normMat),dat2,MeanBasedGrouping=as.character(weird))
+#write.table(dat4,"/home/casia16/leopard/MeanSDGroup222Scaf.txt",quote=F,row=F)
+
+png("/home/casia16/leopard/filtered_plots/222ScafAutoNonAuto_weirdScaff.png", width = 1000, height = 400)
+ggplot(dat4, aes(x=1:222, y=Mean))+geom_point(aes(color=MeanBasedGrouping))+geom_errorbar(aes(ymin=Mean-SD,ymax=Mean+SD),width=.1)+theme_classic()+scale_color_manual(values=c("black","blue","red"))+labs(x="Scaffold",color="") + geom_hline(yintercept=1.1, linetype="dashed", color = "red") +
+    geom_hline(yintercept=0.9, linetype="dashed", color = "red")
+dev.off()
+
+
+
+```
+
+```{r, fig.cap=" Distribution Scaffold Normalized Depth After Removing 4 Samples", out.width = '100%'}
+knitr::include_graphics("/home/casia16/leopard/filtered_plots/1bplot.png")
+```
+
+```{r, fig.cap="PCA Plot After removing 4 samples", out.width = '50%'}
+knitr::include_graphics("/home/casia16/leopard/filtered_plots/pca1.png")
+
+```
+
+
+
+```{r, fig.cap="Distribution Scaffold Normalized Depth Group by Sex", out.width = '100%'}
+knitr::include_graphics("/home/casia16/leopard/filtered_plots/2plot.png")
+```
+
+
+
+```{r, fig.cap=" Group Mean of Normalized Depth", out.width = '100%'}
+knitr::include_graphics("/home/casia16/leopard/filtered_plots/3plot.png")
+```
+
+
+
+
+```{r, fig.cap="Scaffolds with Absolute Mean Group Difference > 0.1", out.width = '100%'}
+knitr::include_graphics("/home/casia16/leopard/filtered_plots/4plot.png")
+```
+
+
+
+```{r, fig.cap="Scaffolds with Absolute Mean Group Difference > 0.4", out.width = '100%'}
+knitr::include_graphics("/home/casia16/leopard/filtered_plots/4plot04.png")
+```
+
+```{r, fig.cap="Mean and SD for Sex Scaffolds", out.width = '100%'}
+options(tinytex.verbose = TRUE)
+knitr::include_graphics("/home/casia16/leopard/filtered_plots/23Scafplot_scafLen.png")
+```
+
+
+```{r, fig.cap="Mean and SD for Sex Scaffolds with Threshold 1.1 and 0.9 To Clasify Weird Autosome Scaffolds", out.width = '100%'}
+options(tinytex.verbose = TRUE)
+knitr::include_graphics("/home/casia16/leopard/filtered_plots/222ScafAutoNonAuto.png")
+```
+
+```{r, fig.cap="A caption", out.width = '100%'}
+options(tinytex.verbose = TRUE)
+knitr::include_graphics("/home/casia16/leopard/filtered_plots/222ScafAutoNonAuto_weirdScaff.png")
+```
+
+
+
+
