@@ -1,0 +1,1 @@
+python pcangsd.py -beagle /home/leopard/users/genis/redo11052020collapsedMapped/beagle/leopardV2MapCollapsedMapDepthInbreedRepeatScaff1MbNo4BabNo8DupNo2Rel.beagle.gz -e 3 -threads 64 -minMaf 0.05 -o redoPCAngsd_e3
